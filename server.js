@@ -21,114 +21,176 @@ connectionDate = now.getFullYear() + "/" +now.getMonth() + 1 + "/" +now.getDate(
 
 let defaultMsg = connectionDate + ' -- ';
 
-let SOCKET_LIST = {}; 
-let PLAYER_LIST = {};
+let SOCKET_LIST = {};
 
-let Player = function(id, username){
+
+
+
+// CONFIG CLASSES ET OBJETS
+
+let Entity = function(){
 	let self = {
-		id:id,
-		username:username,
 		x:250,
 		y:250,
-
-		//Interaction avec le clavier
-		pressingRight:false,
-		pressingLeft:false,
-		pressingUp:false,
-		pressingDown:false,
-		maxSpd:10,
-
+		spdX:0,
+		spdY:0,
+		id:"",
 	}
-	self.updatePosition = function(){
-		if(self.pressingRight){
-			self.x+= self.maxSpd;	
-		}
-		if(self.pressingLeft){
-			self.x-= self.maxSpd;
-		}
-		if(self.pressingUp){
-			self.y-= self.maxSpd;
-		}
-		if(self.pressingDown){
-			self.y+= self.maxSpd;
-		}
 
-	}	
+	self.update = function(){
+		self.updatePosition();
+	}
+
+	self.updatePosition = function(){
+		self.x += self.spdX;
+		self.y += self.spdY;
+	}
+
 	return self;
 }
-let userArr = [];
-// // établissement de la connexion
-io.on('connection', (socket) =>{
 
-   	// CONNEXION DU JOUEUR
-   	socket.id = Math.random();
 
-	console.log( defaultMsg + 'Connecté au client' + socket.id);
-   	
-   	socket.on('isConnected',(data)=>{
-   		userArr.push(data.username);
+let Player = function(id, username){
+	let self = Entity();
+		self.id = id;
+		self.username = username;
 
-   		socket.emit('tabJoueurs', {
-   			tabJoueurs: userArr,
-   		});
-   		console.log(defaultMsg + " @ " + socket.id + " -- " + data.username + " is connected");
-   		SOCKET_LIST[socket.id] = socket;
-		
-		let player = Player(socket.id, data.username)
-		PLAYER_LIST[socket.id] = player;
-   	// DECONNEXION DU JOUEUR
+		//Interaction avec le clavier
+		self.pressingRight = false;
+		self.pressingLeft = false;
+		self.pressingUp = false;
+		self.pressingDown = false;
+		self.maxSpd = 10;
 
-	   	socket.on('disconnect',function(){
-	   		console.log(defaultMsg + data.username +" has disconnected");
-	   		userArr.splice(userArr.indexOf(data.username));
-	   		delete SOCKET_LIST[socket.id];
-	   		delete PLAYER_LIST[socket.id];
+	let super_update = self.update;
 
-	   	});
+	self.update = function(){
+		self.updateSpd();
+		super_update();
+	}
 
-	   	socket.on('keyPress', function(data){
-	   		switch (data.inputId) {
-	   			case 'left':
-	   				player.pressingLeft = data.state;
-   				break;
-   				case 'right':
-	   				player.pressingRight = data.state;
-   				break;
-   				case 'up':
-	   				player.pressingUp = data.state;
-   				break;
-   				case 'down':
-	   				player.pressingDown = data.state;
-   				break;
-	   		}
-	   	});
+	self.updateSpd = function(){
 
-   	});
-});
+		if(self.pressingRight){
+			self.spdX = self.maxSpd;	
+		}
+		else if(self.pressingLeft){
+			self.spdX = -self.maxSpd;
+		}
+		else self.spdX = 0;
 
-setInterval(function(){
 
+		if(self.pressingUp){
+			self.spdY = -self.maxSpd;
+		}
+		else if(self.pressingDown){
+			self.spdY = self.maxSpd;
+		}
+		else self.spdY = 0;
+	}
+	Player.list[id]=self;	
+	return self;
+}
+
+Player.list={};
+
+Player.onConnect = function(socket, data){
+	let player = Player(socket.id, data.username);
+	socket.on('keyPress', function(data){
+		switch (data.inputId) {
+			case 'left':
+				player.pressingLeft = data.state;
+			break;
+			case 'right':
+				player.pressingRight = data.state;
+			break;
+			case 'up':
+				player.pressingUp = data.state;
+			break;
+			case 'down':
+				player.pressingDown = data.state;
+			break;
+		}
+	});
+}
+
+Player.onDisconnect = function(socket){
+	delete Player.list[socket.id];
+}
+
+Player.update=function(socket){
 	let pack = [];
-	// let playerList = PLAYER_LIST;
+
+	socket.emit('tabJoueurs', {
+		tabJoueurs: Player.list,
+	});
+	// let playerList = Player.list;
 	// let socketList = SOCKET_LIST;
-	for(var i in PLAYER_LIST){
-		player = PLAYER_LIST[i];
-		player.updatePosition();
+	for(var i in Player.list){
+		player = Player.list[i];
+		player.update();
 		pack.push({
 			x:player.x,
 			y:player.y,
 			username: player.username
 		});
 	}
+	return pack;
+}
+
+
+// let userArr = [];
+
+// // établissement de la connexion
+io.on('connection', (socket) =>{
+
+   	// CONNEXION DU JOUEUR
+   	socket.id = Math.random();
+	console.log( defaultMsg + 'Connecté au client' + socket.id);
+
+   	// CONNEXION DU JOUEUR
+   	socket.on('isConnected',(data)=>{
+
+   		SOCKET_LIST[socket.id] = socket;
+
+   		Player.onConnect(socket,data);
+   		
+   		let playerName = data.username;
+   		
+   		console.log(defaultMsg + " @ " + socket.id + " -- " + playerName + " is connected");
+   		
+
+   	// DECONNEXION DU JOUEUR
+
+	   	socket.on('disconnect',function(){
+	   		console.log(defaultMsg + playerName +" has disconnected");
+	   		delete SOCKET_LIST[socket.id];
+	   		Player.onDisconnect(socket);
+
+	   	});
+
+	   	socket.on('sendMsgToServer', function(data){
+	   		let msgChat = playerName + ": " + data;
+	   		console.log(defaultMsg + msgChat);
+		   		for(var i in SOCKET_LIST){
+					socket = SOCKET_LIST[i];
+					socket.emit('addToChat', msgChat);
+				}
+		});
+
+   	});
+});
+
+setInterval(function(){
 	for(var i in SOCKET_LIST){
 		socket = SOCKET_LIST[i];
-		socket.emit('newPositions',pack);
+		socket.emit('newPositions', Player.update(socket));
 	}
 
 }, 1000/25);
 
 server.listen(3000, function () {
- console.log('Votre app est disponible sur localhost:3000 !')
+ console.log('Bienvenue sur la présentation GPDC !');
 });
 
 
