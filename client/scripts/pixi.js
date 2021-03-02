@@ -1,33 +1,35 @@
-import * as PIXI from 'pixi.js';
-
-// The application will create a renderer using WebGL, if possible,
-// with a fallback to a canvas render. It will also setup the ticker
-// and the root stage PIXI.Container
-const app = new PIXI.Application();
-
-// The application will create a canvas element for you that you
-// can then insert into the DOM
+const app = new PIXI.Application({
+    width: 800, height: 600, backgroundColor: 0x1099bb, resolution: window.devicePixelRatio || 1,
+});
 document.body.appendChild(app.view);
 
-// load the texture we need
-app.loader.add('bunny', 'bunny.png').load((loader, resources) => {
-    // This creates a texture from a 'bunny.png' image
-    const bunny = new PIXI.Sprite(resources.bunny.texture);
+const container = new PIXI.Container();
 
-    // Setup the position of the bunny
-    bunny.x = app.renderer.width / 2;
-    bunny.y = app.renderer.height / 2;
+app.stage.addChild(container);
 
-    // Rotate around the center
-    bunny.anchor.x = 0.5;
-    bunny.anchor.y = 0.5;
+// Create a new texture
+const texture = PIXI.Texture.from('examples/assets/bunny.png');
 
-    // Add the bunny to the scene we are building
-    app.stage.addChild(bunny);
+// Create a 5x5 grid of bunnies
+for (let i = 0; i < 25; i++) {
+    const bunny = new PIXI.Sprite(texture);
+    bunny.anchor.set(0.5);
+    bunny.x = (i % 5) * 40;
+    bunny.y = Math.floor(i / 5) * 40;
+    container.addChild(bunny);
+}
 
-    // Listen for frame updates
-    app.ticker.add(() => {
-         // each frame we spin the bunny around a bit
-        bunny.rotation += 0.01;
-    });
+// Move container to the center
+container.x = app.screen.width / 2;
+container.y = app.screen.height / 2;
+
+// Center bunny sprite in local container coordinates
+container.pivot.x = container.width / 2;
+container.pivot.y = container.height / 2;
+
+// Listen for animate update
+app.ticker.add((delta) => {
+    // rotate the container!
+    // use delta to create frame-independent transform
+    container.rotation -= 0.01 * delta;
 });

@@ -24,14 +24,12 @@ let defaultMsg = connectionDate + ' -- ';
 let SOCKET_LIST = {};
 
 
-
-
 // CONFIG CLASSES ET OBJETS
 
-let Entity = function(){
+let Entity = function(x, y){
 	let self = {
-		x:250,
-		y:250,
+		x:x/2,
+		y:y/2,
 		spdX:0,
 		spdY:0,
 		id:"",
@@ -50,11 +48,11 @@ let Entity = function(){
 }
 
 
-let Player = function(id, username){
-	let self = Entity();
+let Player = function(id, username,sprite, positionX, positionY){
+	let self = Entity(positionX, positionY);
 		self.id = id;
 		self.username = username;
-
+		self.sprite = sprite;
 		//Interaction avec le clavier
 		self.pressingRight = false;
 		self.pressingLeft = false;
@@ -88,14 +86,33 @@ let Player = function(id, username){
 		}
 		else self.spdY = 0;
 	}
-	Player.list[id]=self;	
+
+	self.getInitPack = function(){
+		return {
+			id:self.id,
+			username:self.username,
+			sprite:self.sprite,
+			x:self.x,
+			y:self.y	
+		};		
+	}
+
+	self.getUpdatePack = function(){
+		return {
+			id:self.id,
+			x:self.x,
+			y:self.y,
+		}	
+	}
+	Player.list[id]=self;
+
+	initPack.player.push(self.getInitPack());	
 	return self;
 }
 
 Player.list={};
-
 Player.onConnect = function(socket, data){
-	let player = Player(socket.id, data.username);
+	let player = Player(socket.id, data.username, data.sprite, data.screenSizeWidth, data.screenSizeHeight);
 	socket.on('keyPress', function(data){
 		switch (data.inputId) {
 			case 'left':
@@ -112,10 +129,24 @@ Player.onConnect = function(socket, data){
 			break;
 		}
 	});
+
+	socket.emit('init',{
+		selfId:socket.id,
+		player:Player.getAllInitPack(),
+	})
+}
+
+Player.getAllInitPack = function(){
+	var players = [];
+	for(var i in Player.list)
+		players.push(Player.list[i].getInitPack());
+		console.log(Player.list[i].getInitPack());
+	return players;
 }
 
 Player.onDisconnect = function(socket){
 	delete Player.list[socket.id];
+	removePack.player.push(socket.id);
 }
 
 Player.update=function(socket){
@@ -129,11 +160,7 @@ Player.update=function(socket){
 	for(var i in Player.list){
 		player = Player.list[i];
 		player.update();
-		pack.push({
-			x:player.x,
-			y:player.y,
-			username: player.username
-		});
+		pack.push(player.getUpdatePack());
 	}
 	return pack;
 }
@@ -150,15 +177,15 @@ io.on('connection', (socket) =>{
 
    	// CONNEXION DU JOUEUR
    	socket.on('isConnected',(data)=>{
-
    		SOCKET_LIST[socket.id] = socket;
-
+   		// console.log(data);
    		Player.onConnect(socket,data);
    		
    		let playerName = data.username;
    		
    		console.log(defaultMsg + " @ " + socket.id + " -- " + playerName + " is connected");
    		
+   		socket.emit('addToChat', '<div style="font:18px; color:#fcc500">Bienvenue '+playerName+' sur la présentation de R-Smart</div>');
 
    	// DECONNEXION DU JOUEUR
 
@@ -181,16 +208,24 @@ io.on('connection', (socket) =>{
    	});
 });
 
+let initPack = {player:[]};
+let removePack = {player:[]};
+
 setInterval(function(){
 	for(var i in SOCKET_LIST){
 		socket = SOCKET_LIST[i];
-		socket.emit('newPositions', Player.update(socket));
+		let pack = {player:Player.update(socket)};
+		socket.emit('init',initPack);
+		socket.emit('update',pack);
+		socket.emit('remove',removePack);
 	}
+	initPack.player =[];
+	removePack.player =[];
 
 }, 1000/25);
 
 server.listen(3000, function () {
- console.log('Bienvenue sur la présentation GPDC !');
+ console.log('Server -- OK !');
 });
 
 

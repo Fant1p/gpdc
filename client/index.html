@@ -3,7 +3,8 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width">
-        <title>Tuto WebSocket avec Socket.io et NodeJS par PracticalProgramming.fr</title>
+        <title>pres GPDC</title>
+        <link rel="stylesheet" href="/client/styles/stylesheets.css">
     </head>
 
     <body>
@@ -16,115 +17,23 @@
              <button onclick="enterGame(document.getElementById('nickInput').value)">TO WORK -> </button>
         </div>
         <div id="gameInterface" hidden>
-            <canvas id="ctx" width="500" height="500" style="border:1px solid #000 "></canvas>
-
-            <div id="chat-text" style="width:500px; height: 100px;overflow-y: scroll">
-                
+            <!-- <canvas id="ctx" style="background-color: white; width: 100vw;height: 100vh"></canvas> -->
+            <div id="chat">
+                <div id="chat-text" style="overflow-y: scroll">
+                </div>
+                <form id="chat-form" action="">
+                    <input type="text" placeholder="Entrez du texte ici" id="chat-input">
+                </form>
             </div>
-            <form id="chat-form" action="">
-                <input type="text" id="chat-input" style="width: 500px">
-            </form>
         </div>
 
 
         <!-- CREATION SOCKET -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/5.1.3/pixi.min.js"></script>
         <script src="https://cdn.socket.io/3.1.1/socket.io.min.js" integrity="sha384-gDaozqUvc4HTgo8iZjwth73C6dDDeOJsAgpxBcMpZYztUfjHXpzrpdrHRdVp8ySO" crossorigin="anonymous"></script>
+
         <!-- <script src="/socket.io/socket.io.js"></script> -->
-        <script>
-            let chatText = document.getElementById('chat-text');
-            let chatInput = document.getElementById('chat-input');
-            let chatForm = document.getElementById('chat-form');
-            let ctx = document.getElementById('ctx').getContext("2d");
-            ctx.font='30px Arial';
-
-            const socket = io();
-            let enterGame = function(nickname){
-                // EMIT
-                socket.emit('isConnected',{
-                    username : nickname,
-                });
-
-                // ON
-                socket.on('tabJoueurs',(data)=>{
-                    userArr = [];
-                    for(var i in data.tabJoueurs){
-                        userArr.push(data.tabJoueurs[i].username);
-                    }
-                });
-
-                socket.on('newPositions', function(data){
-                    // console.log(data);
-                    ctx.clearRect(0,0,500,500);
-                    for(var i = 0; i < data.length;i++){
-                       ctx.fillText(userArr[i], data[i].x, data[i].y);
-                    }
-                    
-                });
-
-                socket.on('addToChat',function(data){
-                    chatText.innerHTML += '<div>'+data+'</div>';
-                })
-
-                // INTERFACE
-
-                hideWindow('formPlayer');
-                displayWindow('gameInterface');
-
-                chatForm.onsubmit = function(e){
-                    e.preventDefault();
-                    socket.emit('sendMsgToServer', chatInput.value);
-                    chatInput.value = "";
-                }
-
-                // INTERACTIONS CLAVIER
-
-                document.onkeydown = function(event){
-                    if(event.keyCode === 68 ){  //D
-                        socket.emit('keyPress',{inputId:'right', state:true});
-                    } 
-                    else if(event.keyCode === 83){  //S
-                        socket.emit('keyPress',{inputId:'down', state:true});
-                    } 
-                    else if(event.keyCode === 81){  //Q
-                        socket.emit('keyPress',{inputId:'left', state:true});
-                    }
-                    else if(event.keyCode === 90){  //Z
-                        socket.emit('keyPress',{inputId:'up', state:true});
-                    }
-
-                }
-
-                document.onkeyup = function(event){
-                    // console.log(event.keyCode);
-                    if(event.keyCode === 68 ){  //D
-                        socket.emit('keyPress',{inputId:'right', state:false});
-                    } 
-                    else if(event.keyCode === 83){  //S
-                        socket.emit('keyPress',{inputId:'down', state:false});
-                    } 
-                    else if(event.keyCode === 81){  //Q
-                        socket.emit('keyPress',{inputId:'left', state:false});
-                    }
-                    else if(event.keyCode === 90){  //Z
-                        socket.emit('keyPress',{inputId:'up', state:false});
-                    }
-
-                }
-            }
-            
-
-
-            function displayWindow(id){
-                document.getElementById(id).style.display = 'block';
-            }
-
-            function hideWindow(id){
-                document.getElementById(id).style.display = 'none';
-            }
-
-            // message('Bienvenue');
-            
-        </script>
+        <script src="/client/scripts/main.js"></script>
 
     <!-- FIN CODE SOCKET -->
     </body>
