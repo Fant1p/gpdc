@@ -22,16 +22,20 @@ let enterGame = function(nickname){
         width: screenDimensions[0], height: screenDimensions[1], backgroundColor: 0x1099bb, resolution: window.devicePixelRatio || 1,
     });
 
+    let WIDTH = app.screen.width;
+    let HEIGHT = app.screen.height;
+
     const background = PIXI.Sprite.from(Img.map.src);
-    background.width = app.screen.width;
-    background.height = app.screen.height;
+    background.width = WIDTH*2;
+    background.height = HEIGHT*3;
+    background.position.x = 0;
+    background.position.y = 0;
+    // let backgroundTexture = PIXI.Texture.from(Img.map.src);
+    // const background = new PIXI.TilingSprite(backgroundTexture, WIDTH, HEIGHT);
     app.stage.addChild(background);
 
     let appContainer = document.getElementById('gameInterface');
     appContainer.appendChild(app.view);
-
-
-    console.log(app.view);
 
     let Player = function(initPack){
         
@@ -43,7 +47,20 @@ let enterGame = function(nickname){
         self.pathSprite = initPack.sprite;
 
         self.texture = PIXI.Texture.from(self.pathSprite);
+        self.sprite = new PIXI.Sprite(self.texture);
+        self.sprite.interactive = true;
 
+        self.move = function(){
+            var x = self.x - Player.list[selfId].x + WIDTH/2;
+            var y = self.y - Player.list[selfId].y + HEIGHT/2;
+
+            let sprite = self.sprite;
+            sprite.anchor.set(0.5);
+            sprite.x = x;
+            sprite.y = y;
+
+            app.stage.addChild(sprite);
+        }
         Player.list[self.id] = self;
 
         return self;
@@ -66,26 +83,20 @@ let enterGame = function(nickname){
             userArr.push(data.tabJoueurs[i].username);
         }
         // console.log(userArr);
-    });
-
+    }); 
+    var selfId = null;
     socket.on('init', function(data){
-        for(var i = 0; i<data.player.length; i++){
-            new Player(data.player[i]);
+        if(data.selfId){
+            selfId = data.selfId;
         }
 
-        for(var i in Player.list){
-            let sprite = new PIXI.Sprite(Player.list[i].texture);
-
-            sprite.anchor.set(0.5);
-            sprite.x = Player.list[i].x;
-            sprite.y = Player.list[i].y;
-
-            app.stage.addChild(sprite);
+        for(var i = 0; i<data.player.length; i++){
+            new Player(data.player[i]);
+            // console.log(Player.list);
         }
     });
 
     socket.on('update', function(data){
-        // console.log(data);
         for(var i = 0; i<data.player.length; i++){
             let pack = data.player[i];
             let p = Player.list[pack.id];
@@ -96,30 +107,41 @@ let enterGame = function(nickname){
                 if(pack.y !== undefined){
                     p.y = pack.y;
                 }
-            }
+            }     
         }
+        // console.log(data);
+        // console.log(Player.list);
     }); 
 
     socket.on('remove', function(data){
         for(var i = 0; i<data.player.length; i++){
-            delete Player[data.player[i]];
+            app.stage.removeChild(Player.list[data.player[i]].sprite);
+            delete Player.list[data.player[i]];
         }
     });
 
     setInterval(function(){
-        app.view.getContext('2d').clearRect(0,0, 500,500);
+        if(!selfId)
+            return;
+        console.log(selfId);
+        let player = Player.list[selfId];
+        drawMap(player);
         for(var i in Player.list){
-            let sprite = new PIXI.Sprite(Player.list[i].texture);
-            sprite.anchor.set(0.5);
-            sprite.x = Player.list[i].x;
-            sprite.y = Player.list[i].y;
-            app.stage.addChild(sprite);
+            
+            Player.list[i].move();
         }
     },40);
 
     socket.on('addToChat',function(data){
         chatText.innerHTML += '<div>'+data+'</div>';
     })
+
+    var drawMap = function(player){
+        let x = WIDTH/2 - player.x;
+        let y = HEIGHT/2 - player.y;
+        background.position.x = x;
+        background.position.y = y;
+    }
 
     // INTERFACE
 

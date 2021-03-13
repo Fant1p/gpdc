@@ -140,7 +140,7 @@ Player.getAllInitPack = function(){
 	var players = [];
 	for(var i in Player.list)
 		players.push(Player.list[i].getInitPack());
-		console.log(Player.list[i].getInitPack());
+		// console.log(Player.list[i].getInitPack());
 	return players;
 }
 
@@ -213,7 +213,7 @@ let removePack = {player:[]};
 
 setInterval(function(){
 	for(var i in SOCKET_LIST){
-		socket = SOCKET_LIST[i];
+		let socket = SOCKET_LIST[i];
 		let pack = {player:Player.update(socket)};
 		socket.emit('init',initPack);
 		socket.emit('update',pack);
