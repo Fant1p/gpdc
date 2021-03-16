@@ -30,6 +30,13 @@ let enterGame = function(nickname){
     background.height = HEIGHT*3;
     background.position.x = 0;
     background.position.y = 0;
+
+    const style = new PIXI.TextStyle({
+        fontFamily: 'Arial',
+        fontSize: 18,
+        fontWeight: 'bold',
+        fill: '#fcc500'
+    });
     // let backgroundTexture = PIXI.Texture.from(Img.map.src);
     // const background = new PIXI.TilingSprite(backgroundTexture, WIDTH, HEIGHT);
     app.stage.addChild(background);
@@ -49,6 +56,13 @@ let enterGame = function(nickname){
         self.texture = PIXI.Texture.from(self.pathSprite);
         self.sprite = new PIXI.Sprite(self.texture);
         self.sprite.interactive = true;
+        self.sprite.message = new PIXI.Text(self.username, style);
+        self.sprite.message.text = "";
+
+        self.makeHitArea = function(){
+            let hitArea = new PIXI.Rectangle(self.x-self.sprite.width/2, self.y-self.sprite.height/2, self.sprite.width, self.sprite.height);
+            self.sprite.hitArea = hitArea;
+        }
 
         self.move = function(){
             var x = self.x - Player.list[selfId].x + WIDTH/2;
@@ -61,12 +75,44 @@ let enterGame = function(nickname){
 
             app.stage.addChild(sprite);
         }
+
+        self.onHover = function(){
+            self.sprite.alpha = 0.5;
+            var message = self.sprite.message;
+                message.x = self.sprite.x-self.sprite.width/2;
+                message.y = self.sprite.y-self.sprite.height-20;
+            self.sprite.message = message;
+            app.stage.addChild(message);
+        }
+
+
+        self.onRelease = function(){
+            self.sprite.alpha = 1;
+            // console.log(self.sprite.message);
+        }
+
         Player.list[self.id] = self;
 
         return self;
     }
 
     Player.list = {};
+
+    let PC = function(initPack){
+        self.id = initPack.id;
+        self.x = initPack.x;
+        self.y = initPack.y;
+
+        self.sprite = new PIXI.Sprite();
+        self.sprite.width = 60;
+        self.sprite.height = 70;
+        self.sprite.hitArea = new PIXI.Rectangle(self.x-self.sprite.width/2, self.y-self.sprite.height/2, self.sprite.width, self.sprite.height);
+        
+        PC.list[self.id] = self;
+    }
+
+    let nbPC = 1;
+    PC.list = {};
 
     // EMIT
     socket.emit('isConnected',{
@@ -82,18 +128,27 @@ let enterGame = function(nickname){
         for(var i in data.tabJoueurs){
             userArr.push(data.tabJoueurs[i].username);
         }
-        // console.log(userArr);
     }); 
     var selfId = null;
     socket.on('init', function(data){
+        // console.log(data.pc.length);
+        for(var i = 0; i<data.pc.length; i++){
+            new PC(data.pc[i]);
+        }
+
         if(data.selfId){
             selfId = data.selfId;
         }
 
         for(var i = 0; i<data.player.length; i++){
             new Player(data.player[i]);
-            // console.log(Player.list);
         }
+
+        for(var i in Player.list){
+            let player = Player.list[i];
+            player.makeHitArea();
+        }
+
     });
 
     socket.on('update', function(data){
@@ -109,25 +164,31 @@ let enterGame = function(nickname){
                 }
             }     
         }
-        // console.log(data);
-        // console.log(Player.list);
     }); 
 
     socket.on('remove', function(data){
         for(var i = 0; i<data.player.length; i++){
             app.stage.removeChild(Player.list[data.player[i]].sprite);
             delete Player.list[data.player[i]];
+            delete PC.list[data.pc[i]];
         }
     });
 
     setInterval(function(){
         if(!selfId)
             return;
-        console.log(selfId);
         let player = Player.list[selfId];
         drawMap(player);
         for(var i in Player.list){
-            
+            let player = Player.list[i];
+            player.sprite.on('pointerover',player.onHover);
+            player.sprite.on('pointerout',player.onRelease);
+            for(var p in PC.list){
+                let pc = PC.list[p];
+                if(pc.state){
+                    alert('voici le pc ' + p);
+                }
+            }
             Player.list[i].move();
         }
     },40);

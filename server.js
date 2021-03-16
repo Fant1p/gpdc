@@ -133,7 +133,7 @@ Player.onConnect = function(socket, data){
 	socket.emit('init',{
 		selfId:socket.id,
 		player:Player.getAllInitPack(),
-	})
+	});
 }
 
 Player.getAllInitPack = function(){
@@ -165,6 +165,76 @@ Player.update=function(socket){
 	return pack;
 }
 
+let PC = function(id,positionX, positionY){
+	let self = Entity(positionX, positionY);
+		self.id = id;
+		//Interaction avec le clavier
+		self.clicked = false;
+		self.near = false;
+		self.state = false;
+
+	self.onProximity = function(){
+		self.near = true;
+		return self.near;
+	}
+
+	self.powerOn = function(){
+		if(self.near && self.clicked){
+			self.state = true;
+		}
+		return self.state;
+	}
+
+	self.getInitPack = function(){
+		return {
+			id:self.id,
+			x:self.x,
+			y:self.y	
+		};		
+	}
+
+	self.getUpdatePack = function(){
+		return {
+			id:self.id,
+			x:self.x,
+			y:self.y,
+		}	
+	}
+
+	PC.list[id]=self;
+
+	initPack.pc.push(self.getInitPack());	
+	return self;
+
+}
+PC.list={};
+PC.create = function(socket,pc){
+	let id = pc.id;
+	let newPc = PC(pc.id, 675, 351.5);
+
+	socket.emit('init',{
+		pc:PC.getAllInitPack()
+	});
+}
+
+PC.getAllInitPack = function(){
+	var pc = [];
+	// console.log(PC.list);
+	for(var i in PC.list)
+		pc.push(PC.list[i].getInitPack());
+		// console.log(Player.list[i].getInitPack());
+	return pc;
+}
+
+Player.update=function(socket){
+	let pack = [];
+	for(var i in PC.list){
+		pc = PC.list[i];
+		pc.update();
+		pack.push(pc.getUpdatePack());
+	}
+	return pack;
+}
 
 // let userArr = [];
 
@@ -173,12 +243,16 @@ io.on('connection', (socket) =>{
 
    	// CONNEXION DU JOUEUR
    	socket.id = Math.random();
-	console.log( defaultMsg + 'Connecté au client' + socket.id);
+   	let pc = {};
+   	pc.id = Math.random();
+	console.log( defaultMsg + 'Connecté au client ' + socket.id);
 
+	PC.create(socket, pc);
    	// CONNEXION DU JOUEUR
    	socket.on('isConnected',(data)=>{
    		SOCKET_LIST[socket.id] = socket;
    		// console.log(data);
+   		
    		Player.onConnect(socket,data);
    		
    		let playerName = data.username;
@@ -192,27 +266,30 @@ io.on('connection', (socket) =>{
 	   	socket.on('disconnect',function(){
 	   		console.log(defaultMsg + playerName +" has disconnected");
 	   		delete SOCKET_LIST[socket.id];
+	   		delete PC.list[pc.id];
 	   		Player.onDisconnect(socket);
+	   		removePack.pc.push(pc.id);
 
 	   	});
 
 	   	socket.on('sendMsgToServer', function(data){
 	   		let msgChat = playerName + ": " + data;
 	   		console.log(defaultMsg + msgChat);
-		   		for(var i in SOCKET_LIST){
-					socket = SOCKET_LIST[i];
-					socket.emit('addToChat', msgChat);
-				}
+	   		for(var i in SOCKET_LIST){
+				socket = SOCKET_LIST[i];
+				socket.emit('addToChat', msgChat);
+			}
 		});
 
    	});
 });
 
-let initPack = {player:[]};
-let removePack = {player:[]};
+let initPack = {player:[], pc:[]};
+let removePack = {player:[], pc:[]};
 
 setInterval(function(){
 	for(var i in SOCKET_LIST){
+		// console.log(initPack);
 		let socket = SOCKET_LIST[i];
 		let pack = {player:Player.update(socket)};
 		socket.emit('init',initPack);
