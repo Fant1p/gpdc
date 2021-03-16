@@ -173,15 +173,17 @@ let PC = function(id,positionX, positionY){
 		self.near = false;
 		self.state = false;
 
+	self.onClick = function(){
+		self.clicked = true;
+	}
+
 	self.onProximity = function(){
 		self.near = true;
 		return self.near;
 	}
 
 	self.powerOn = function(){
-		if(self.near && self.clicked){
-			self.state = true;
-		}
+		self.state = true;
 		return self.state;
 	}
 
@@ -226,7 +228,7 @@ PC.getAllInitPack = function(){
 	return pc;
 }
 
-Player.update=function(socket){
+PC.update=function(socket){
 	let pack = [];
 	for(var i in PC.list){
 		pc = PC.list[i];
@@ -248,6 +250,7 @@ io.on('connection', (socket) =>{
 	console.log( defaultMsg + 'Connecté au client ' + socket.id);
 
 	PC.create(socket, pc);
+	
    	// CONNEXION DU JOUEUR
    	socket.on('isConnected',(data)=>{
    		SOCKET_LIST[socket.id] = socket;
@@ -266,8 +269,9 @@ io.on('connection', (socket) =>{
 	   	socket.on('disconnect',function(){
 	   		console.log(defaultMsg + playerName +" has disconnected");
 	   		delete SOCKET_LIST[socket.id];
-	   		delete PC.list[pc.id];
 	   		Player.onDisconnect(socket);
+
+	   		delete PC.list[pc.id];
 	   		removePack.pc.push(pc.id);
 
 	   	});

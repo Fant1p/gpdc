@@ -132,9 +132,9 @@ let enterGame = function(nickname){
     var selfId = null;
     socket.on('init', function(data){
         // console.log(data.pc.length);
-        for(var i = 0; i<data.pc.length; i++){
-            new PC(data.pc[i]);
-        }
+        // for(var i = 0; i<data.pc.length; i++){
+        //     new PC(data.pc[i]);
+        // }
 
         if(data.selfId){
             selfId = data.selfId;
@@ -183,13 +183,20 @@ let enterGame = function(nickname){
             let player = Player.list[i];
             player.sprite.on('pointerover',player.onHover);
             player.sprite.on('pointerout',player.onRelease);
+            Player.list[i].move();
             for(var p in PC.list){
                 let pc = PC.list[p];
+                if(player.x == pc.x + 10 || player.x == pc.x - 10 || player.y == pc.y + 10 || player.y == pc.y - 10){
+                    pc.onProximity();
+                }
+                pc.sprite.on('pointerdown', pc.onClick());
+                if(pc.clicked && pc.near){
+                    pc.powerOn();
+                }
                 if(pc.state){
                     alert('voici le pc ' + p);
                 }
             }
-            Player.list[i].move();
         }
     },40);
 
