@@ -3,6 +3,8 @@ var Img = {};
     Img.player.src = '/client/img/player.png';
     Img.map = new Image();
     Img.map.src = '/client/img/office.png';
+    Img.entity = new Image();
+    Img.entity.src = '/client/img/bat.png';
 
 let chatText = document.getElementById('chat-text');
 let chatInput = document.getElementById('chat-input');
@@ -12,7 +14,6 @@ let chatForm = document.getElementById('chat-form');
 
 const socket = io();
 let enterGame = function(nickname){
-        
 
     // PIXIJS
     let screenDimensions = [window.innerWidth, window.innerHeight];
@@ -30,6 +31,18 @@ let enterGame = function(nickname){
     background.height = HEIGHT*3;
     background.position.x = 0;
     background.position.y = 0;
+   
+    const texture = PIXI.Texture.from(Img.map.src);
+    const tiledBackground = new PIXI.TilingSprite(texture,0,0);
+    
+    tiledBackground.width = WIDTH*2;
+    tiledBackground.height = HEIGHT*3;
+    // tiledBackground.position.x = 0;
+    // tiledBackground.position.y = 0;
+
+    app.stage.addChild(background);
+    app.stage.addChild(tiledBackground);
+
 
     const style = new PIXI.TextStyle({
         fontFamily: 'Arial',
@@ -37,12 +50,16 @@ let enterGame = function(nickname){
         fontWeight: 'bold',
         fill: '#fcc500'
     });
+
+    const wallPositions = {
+        x:175,
+        y:75
+    };
     // let backgroundTexture = PIXI.Texture.from(Img.map.src);
     // const background = new PIXI.TilingSprite(backgroundTexture, WIDTH, HEIGHT);
-    app.stage.addChild(background);
 
     let appContainer = document.getElementById('gameInterface');
-    appContainer.appendChild(app.view);
+    
 
     let Player = function(initPack){
         
@@ -56,13 +73,14 @@ let enterGame = function(nickname){
         self.texture = PIXI.Texture.from(self.pathSprite);
         self.sprite = new PIXI.Sprite(self.texture);
         self.sprite.interactive = true;
+        self.sprite.buttonMode = true;
         self.sprite.message = new PIXI.Text(self.username, style);
-        self.sprite.message.text = "";
+        // self.sprite.message.text = "";
 
-        self.makeHitArea = function(){
-            let hitArea = new PIXI.Rectangle(self.x-self.sprite.width/2, self.y-self.sprite.height/2, self.sprite.width, self.sprite.height);
-            self.sprite.hitArea = hitArea;
-        }
+        // self.makeHitArea = function(){
+        //     let hitArea = new PIXI.Rectangle(self.x-self.sprite.width/2, self.y-self.sprite.height/2, self.sprite.width, self.sprite.height);
+        //     self.sprite.hitArea = hitArea;
+        // }
 
         self.move = function(){
             var x = self.x - Player.list[selfId].x + WIDTH/2;
@@ -78,6 +96,7 @@ let enterGame = function(nickname){
 
         self.onHover = function(){
             self.sprite.alpha = 0.5;
+            self.sprite.message.alpha = 1;
             var message = self.sprite.message;
                 message.x = self.sprite.x-self.sprite.width/2;
                 message.y = self.sprite.y-self.sprite.height-20;
@@ -88,32 +107,73 @@ let enterGame = function(nickname){
 
         self.onRelease = function(){
             self.sprite.alpha = 1;
+            self.sprite.message.alpha = 0;
             // console.log(self.sprite.message);
         }
-
         Player.list[self.id] = self;
 
         return self;
     }
 
     Player.list = {};
-
+    // let PC.list = {};
+    
     let PC = function(initPack){
+        let self = {};
         self.id = initPack.id;
         self.x = initPack.x;
         self.y = initPack.y;
 
+        // self.texture = PIXI.Texture.from(Img.entity.src);
+        
         self.sprite = new PIXI.Sprite();
+        self.sprite.anchor.set(0.5);
+        self.sprite.interactive = true;
+        self.sprite.buttonMode = true;
         self.sprite.width = 60;
         self.sprite.height = 70;
-        self.sprite.hitArea = new PIXI.Rectangle(self.x-self.sprite.width/2, self.y-self.sprite.height/2, self.sprite.width, self.sprite.height);
         
+        self.near = false;
+        self.clicked = false;
+        // self.sprite.hitArea = new PIXI.Rectangle(self.x, self.y, self.width, self.height); 
+        
+
+        self.onPlayerMove = function(){
+            let x = self.x - Player.list[selfId].x + WIDTH/2;
+            let y = self.y - Player.list[selfId].y + HEIGHT/2;
+            self.sprite.x = x;
+            self.sprite.y = y; 
+
+            app.stage.addChild(self.sprite);  
+        }
+        
+        self.onClick = function(){
+            console.log(self.clicked);
+
+            if(self.near && self.clicked){
+                self.powerOn();
+                self.clicked = false;
+            }
+        }
+
+        self.powerOn = function(){
+            alert('voici le pc ' + self.id);
+        }
+
+        self.onProximity = function(player){
+            if(player.x <= self.x + 150 || player.y < self.y + 100 ){
+                self.near = true;
+            }
+            else{
+                self.near = false;
+            }
+        }       
+            
         PC.list[self.id] = self;
     }
 
-    let nbPC = 1;
     PC.list = {};
-
+    
     // EMIT
     socket.emit('isConnected',{
         username : nickname,
@@ -131,27 +191,28 @@ let enterGame = function(nickname){
     }); 
     var selfId = null;
     socket.on('init', function(data){
-        // console.log(data.pc.length);
-        // for(var i = 0; i<data.pc.length; i++){
-        //     new PC(data.pc[i]);
-        // }
-
+        // console.log(data);
         if(data.selfId){
             selfId = data.selfId;
         }
+        let player = data.player;
+        let pc=data.pc;
 
-        for(var i = 0; i<data.player.length; i++){
+        for(var i = 0; i<player.length; i++){
             new Player(data.player[i]);
         }
 
-        for(var i in Player.list){
-            let player = Player.list[i];
-            player.makeHitArea();
+        for(var i = 0; i<pc.length; i++){
+            new PC(data.pc[i]);
         }
-
+        // for(var i in Player.list){
+        //     let player = Player.list[i];
+        //     player.makeHitArea();
+        // }
     });
 
     socket.on('update', function(data){
+        // console.log(data);
         for(var i = 0; i<data.player.length; i++){
             let pack = data.player[i];
             let p = Player.list[pack.id];
@@ -167,13 +228,20 @@ let enterGame = function(nickname){
     }); 
 
     socket.on('remove', function(data){
+        // console.log(data);
         for(var i = 0; i<data.player.length; i++){
             app.stage.removeChild(Player.list[data.player[i]].sprite);
             delete Player.list[data.player[i]];
-            delete PC.list[data.pc[i]];
+            // delete PC.list[data.pc[i]];
         }
+        for(var i = 0; i<data.pc.length; i++){
+            app.stage.removeChild(PC.list[data.pc[i]].sprite);
+            delete PC.list[data.player[i]];
+        }
+        
     });
 
+    let coord = true;
     setInterval(function(){
         if(!selfId)
             return;
@@ -184,21 +252,39 @@ let enterGame = function(nickname){
             player.sprite.on('pointerover',player.onHover);
             player.sprite.on('pointerout',player.onRelease);
             Player.list[i].move();
-            for(var p in PC.list){
-                let pc = PC.list[p];
-                if(player.x == pc.x + 10 || player.x == pc.x - 10 || player.y == pc.y + 10 || player.y == pc.y - 10){
-                    pc.onProximity();
-                }
-                pc.sprite.on('pointerdown', pc.onClick());
-                if(pc.clicked && pc.near){
-                    pc.powerOn();
-                }
-                if(pc.state){
-                    alert('voici le pc ' + p);
-                }
+            if(coord){
+                player.sprite.on('pointerdown', function(){
+                    console.clear();
+                    console.log("x: "+player.x);
+                    console.log("y: "+player.y);
+                });
+                console.log(Player.list);
+                console.log(PC.list);
+                coord = false;
             }
         }
+        // console.log(PC.list);
+        for(var p in PC.list){
+            let pc = PC.list[p];
+            let player = Player.list[selfId];
+            pc.onPlayerMove();
+
+            app.stage.addChild(pc.sprite);
+
+            pc.onProximity(player);
+            pc.sprite.on('pointerdown',function(){
+                if(pc.clicked){
+                    pc.clicked = false;
+                }
+                else{
+                    pc.clicked = true;
+                    pc.onClick();
+                }
+            });
+        }
     },40);
+
+    // qqqqq
 
     socket.on('addToChat',function(data){
         chatText.innerHTML += '<div>'+data+'</div>';
@@ -257,6 +343,8 @@ let enterGame = function(nickname){
         }
 
     }
+
+    appContainer.appendChild(app.view);
 }
 
 

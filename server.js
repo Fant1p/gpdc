@@ -28,8 +28,8 @@ let SOCKET_LIST = {};
 
 let Entity = function(x, y){
 	let self = {
-		x:x/2,
-		y:y/2,
+		x:x,
+		y:y,
 		spdX:0,
 		spdY:0,
 		id:"",
@@ -169,9 +169,6 @@ let PC = function(id,positionX, positionY){
 	let self = Entity(positionX, positionY);
 		self.id = id;
 		//Interaction avec le clavier
-		self.clicked = false;
-		self.near = false;
-		self.state = false;
 
 	self.onClick = function(){
 		self.clicked = true;
@@ -203,7 +200,7 @@ let PC = function(id,positionX, positionY){
 		}	
 	}
 
-	PC.list[id]=self;
+	// PC.list[id]=self;
 
 	initPack.pc.push(self.getInitPack());	
 	return self;
@@ -211,8 +208,7 @@ let PC = function(id,positionX, positionY){
 }
 PC.list={};
 PC.create = function(socket,pc){
-	let id = pc.id;
-	let newPc = PC(pc.id, 675, 351.5);
+	let pc = PC(pc.id, pc.x, pc.y);
 
 	socket.emit('init',{
 		pc:PC.getAllInitPack()
@@ -228,7 +224,7 @@ PC.getAllInitPack = function(){
 	return pc;
 }
 
-PC.update=function(socket){
+PC.update=function(){
 	let pack = [];
 	for(var i in PC.list){
 		pc = PC.list[i];
@@ -238,26 +234,32 @@ PC.update=function(socket){
 	return pack;
 }
 
-// let userArr = [];
+PC.onPlayerDisconnect = function(pc){
+	delete PC.list[pc.id];
+	removePack.player.push(pc);
+}
 
+// let userArr = [];
 // // établissement de la connexion
 io.on('connection', (socket) =>{
-
-   	// CONNEXION DU JOUEUR
    	socket.id = Math.random();
-   	let pc = {};
-   	pc.id = Math.random();
 	console.log( defaultMsg + 'Connecté au client ' + socket.id);
-
-	PC.create(socket, pc);
 	
    	// CONNEXION DU JOUEUR
    	socket.on('isConnected',(data)=>{
    		SOCKET_LIST[socket.id] = socket;
    		// console.log(data);
-   		
+   		PC.list[0] = new PC(0,700,125);
+		PC.list[1] = new PC(1,700,325);
+		PC.list[2] = new PC(2,700,525);
+		PC.list[3] = new PC(3,580,255);
+		PC.list[4] = new PC(4,580,455);
+		PC.list[5] = new PC(5,580,655);
+   		socket.emit('init',{
+			pc:PC.getAllInitPack()
+		});
    		Player.onConnect(socket,data);
-   		
+   		console.log(initPack);
    		let playerName = data.username;
    		
    		console.log(defaultMsg + " @ " + socket.id + " -- " + playerName + " is connected");
@@ -272,7 +274,7 @@ io.on('connection', (socket) =>{
 	   		Player.onDisconnect(socket);
 
 	   		delete PC.list[pc.id];
-	   		removePack.pc.push(pc.id);
+	   		PC.onPlayerDisconnect(pc);
 
 	   	});
 
@@ -287,7 +289,6 @@ io.on('connection', (socket) =>{
 
    	});
 });
-
 let initPack = {player:[], pc:[]};
 let removePack = {player:[], pc:[]};
 
@@ -295,13 +296,15 @@ setInterval(function(){
 	for(var i in SOCKET_LIST){
 		// console.log(initPack);
 		let socket = SOCKET_LIST[i];
-		let pack = {player:Player.update(socket)};
+		let pack = {player:Player.update(socket), pc:PC.update()};
 		socket.emit('init',initPack);
 		socket.emit('update',pack);
 		socket.emit('remove',removePack);
 	}
 	initPack.player =[];
 	removePack.player =[];
+	initPack.pc = [];
+	removePack.pc =[];
 
 }, 1000/25);
 
